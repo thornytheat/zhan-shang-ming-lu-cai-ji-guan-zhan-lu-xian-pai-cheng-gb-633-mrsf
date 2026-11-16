@@ -1,0 +1,383 @@
+/* components.css — 网格表、单元格焦点、状态标签、汇总条、打印 */
+
+/* ---------- 面板 ---------- */
+.panel {
+  background: var(--surface);
+  border: var(--line-w) solid var(--line-strong);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--pad);
+  padding: 5px var(--pad);
+  background: var(--surface-2);
+  border-bottom: var(--line-w) solid var(--line-strong);
+  min-height: 30px;
+}
+
+.panel-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.panel-sub {
+  font-family: var(--font-num);
+  font-size: 11px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.panel-body {
+  padding: var(--pad);
+}
+
+.panel-body.flush {
+  padding: 0;
+}
+
+/* ---------- 网格表 ---------- */
+.grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-grid);
+  font-size: 12px;
+}
+
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface-3);
+  border-right: var(--line-w) solid var(--line);
+  border-bottom: var(--line-w) solid var(--line-strong);
+  padding: 3px 6px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  height: var(--head-h);
+  vertical-align: bottom;
+}
+
+.grid thead th .cl {
+  display: block;
+  font-family: var(--font-num);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.grid thead th.rn {
+  left: 0;
+  z-index: 4;
+  width: var(--rownum-w);
+  min-width: var(--rownum-w);
+  background: var(--surface-2);
+}
+
+.grid tbody td {
+  border-right: var(--line-w) solid var(--line);
+  border-bottom: var(--line-w) solid var(--line);
+  padding: 2px 6px;
+  height: var(--row-h);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.grid tbody tr:nth-child(even) td {
+  background: var(--zebra);
+}
+
+.grid tbody tr:hover td {
+  background: var(--accent-soft);
+}
+
+.grid td.rn {
+  font-family: var(--font-num);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  text-align: right;
+  background: var(--surface-2);
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: var(--rownum-w);
+  min-width: var(--rownum-w);
+}
+
+.grid td.num,
+.grid th.num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid td.mono,
+.grid th.mono {
+  font-family: var(--font-num);
+}
+
+.grid td.wide {
+  max-width: 420px;
+}
+
+.grid td.cell:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  background: var(--surface);
+  position: relative;
+  z-index: 1;
+}
+
+.grid tbody tr.is-dim td {
+  color: var(--ink-faint);
+}
+
+.grid tbody tr.is-bad td.code,
+.grid td.code {
+  font-family: var(--font-num);
+  color: var(--bad);
+}
+
+.grid tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-2);
+  border-top: var(--line-w) solid var(--line-strong);
+  font-family: var(--font-num);
+  padding: 4px 6px;
+  font-size: 11.5px;
+}
+
+/* ---------- 状态标签：方框，不用圆角药丸 ---------- */
+.tag {
+  display: inline-block;
+  padding: 0 4px;
+  border: var(--line-w) solid currentColor;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.tag.ok {
+  color: var(--ok);
+}
+
+.tag.warn {
+  color: var(--warn);
+}
+
+.tag.bad {
+  color: var(--bad);
+}
+
+.tag.info {
+  color: var(--info);
+}
+
+.tag.mute {
+  color: var(--ink-faint);
+}
+
+/* ---------- 阶段条 ---------- */
+.stages {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--gap);
+  border: var(--line-w) solid var(--line-strong);
+  background: var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stage {
+  background: var(--surface);
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+.stage-name {
+  font-size: 11px;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+
+.stage-nums {
+  font-family: var(--font-num);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stage.is-failed {
+  background: #f7e9ea;
+}
+
+.stage.is-skipped {
+  color: var(--ink-faint);
+}
+
+/* ---------- 汇总条 ---------- */
+.totals {
+  display: flex;
+  gap: var(--pad-lg);
+  align-items: baseline;
+  padding: 5px var(--pad);
+  background: var(--surface-2);
+  border: var(--line-w) solid var(--line-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-num);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.totals b {
+  font-weight: 600;
+}
+
+.totals .unit {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+/* ---------- 表单 ---------- */
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+select,
+input[type="text"],
+input[type="number"] {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 2px 4px;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--line-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  min-height: 24px;
+}
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+button {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 3px 10px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: var(--line-w) solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--speed) ease;
+}
+
+button:hover {
+  background: #4d5c7a;
+}
+
+button.ghost {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* ---------- 链接与提示 ---------- */
+a {
+  color: var(--info);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.note {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  font-family: var(--font-num);
+}
+
+.empty {
+  padding: var(--pad-lg);
+  color: var(--ink-muted);
+  font-size: 12.5px;
+}
+
+.err {
+  padding: 6px var(--pad);
+  border: var(--line-w) solid var(--bad);
+  border-radius: var(--radius-sm);
+  color: var(--bad);
+  font-size: 12px;
+}
+
+.log {
+  margin: 0;
+  padding: var(--pad);
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--font-num);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--ink-muted);
+  background: var(--surface);
+  white-space: pre-wrap;
+}
+
+/* ---------- 打印 ---------- */
+@media print {
+  .topbar,
+  .tabs,
+  button,
+  select,
+  .gridwrap {
+    position: static;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .gridwrap {
+    max-height: none;
+    overflow: visible;
+    border-color: #999;
+  }
+
+  .panel,
+  .stages {
+    break-inside: avoid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}

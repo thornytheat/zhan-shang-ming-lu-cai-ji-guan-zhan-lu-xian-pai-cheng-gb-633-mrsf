@@ -1,0 +1,37 @@
+/* theme.css — 只有变量：中性 220° 表格网格配色、字族、密度、边框 */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --surface-2: #e8ebf0;
+  --surface-3: #dde1e8;
+  --ink: #14181f;
+  --ink-muted: #5c6675;
+  --ink-faint: #8a93a1;
+  --line: #d3d8e1;
+  --line-strong: #a8b1c0;
+  --accent: #3f4c66;
+  --accent-soft: #dfe3ec;
+  --accent-ink: #ffffff;
+  --ok: #1f7a4d;
+  --warn: #8f6110;
+  --bad: #a3222c;
+  --info: #2f6087;
+  --font-ui: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  --font-grid: "Helvetica Neue", Arial, "PingFang SC", sans-serif;
+  --radius: 2px;
+  --radius-sm: 1px;
+  --pad: 6px;
+  --pad-lg: 12px;
+  --gap: 1px;
+  --row-h: 26px;
+  --head-h: 34px;
+  --rownum-w: 46px;
+  --cell-min: 86px;
+  --zebra: #f7f8fa;
+  --focus: #2b3550;
+  --focus-ring: #2b3550;
+  --shadow: none;
+  --line-w: 1px;
+  --speed: 120ms;
+}

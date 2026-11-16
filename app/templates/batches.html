@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>批次 <b>{{ rows|length }}</b></span>
+  <span>当前 <b>{{ current.batch.batch_id if current else '—' }}</b></span>
+  <span>水位 <b>{{ current.watermark or '—' if current else '—' }}</b></span>
+  <span class="unit">{{ rule_version }}</span>
+</div>
+
+<div class="split">
+  <div class="gridwrap">
+    <table class="grid" id="grid-batches">
+      {{ ui.gridhead(["批次", "版本", "状态", "来源", "输入摘要", "创建", "续跑自"], evidence=False) }}
+      <tbody>
+        {% for b in rows %}
+        <tr>
+          <td class="cell mono" tabindex="0"><a href="/batches?batch_id={{ b.batch_id }}">{{ b.batch_id }}</a></td>
+          <td class="cell num" tabindex="0">v{{ b.version }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'ok' if b.status == 'done' else 'bad' }}">{{ b.status_label }}</span></td>
+          <td class="cell" tabindex="0">{{ b.source }}</td>
+          <td class="cell mono" tabindex="0">{{ b.input_digest }}</td>
+          <td class="cell mono" tabindex="0">{{ b.created_at[:16]|replace('T', ' ') }}</td>
+          <td class="cell mono" tabindex="0">{{ b.resume_of }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="empty">还没有批次。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">阶段</span>
+        <span class="panel-sub">{{ current.batch.status if current else '—' }}</span></div>
+      <div class="panel-body flush">
+        <table class="grid">
+          {{ ui.gridhead(["阶段", "进", "出", "隔离", "毫秒"], evidence=False) }}
+          <tbody>
+            {% for s in (current.stage_rows if current else []) %}
+            <tr class="{% if s.status != 'ok' %}is-bad{% endif %}">
+              <td class="cell" tabindex="0">{{ s.label }}</td>
+              <td class="cell num" tabindex="0">{{ s.in_count }}</td>
+              <td class="cell num" tabindex="0">{{ s.out_count }}</td>
+              <td class="cell num" tabindex="0">{{ s.quarantine_count }}</td>
+              <td class="cell num" tabindex="0">{{ s.elapsed_ms }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="empty">还没有阶段记录。</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">版本链</span>
+        <span class="panel-sub">{{ current.version_rows|length if current else 0 }} 版</span></div>
+      <div class="panel-body flush">
+        <table class="grid">
+          {{ ui.gridhead(["版本", "批次", "状态"], evidence=False) }}
+          <tbody>
+            {% for v in (current.version_rows if current else []) %}
+            <tr>
+              <td class="cell num" tabindex="0">v{{ v.version }}</td>
+              <td class="cell mono" tabindex="0">{{ v.batch_id }}</td>
+              <td class="cell" tabindex="0">{{ v.status }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty">还没有版本。</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gridwrap">
+  <table class="grid">
+    {{ ui.gridhead(["指标", "值"], evidence=False) }}
+    <tbody>
+      {% for t in (current.totals_rows if current else []) %}
+      <tr>
+        <td class="cell" tabindex="0">{{ t.label }}</td>
+        <td class="cell num" tabindex="0">{{ t.value }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="empty">还没有合计。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

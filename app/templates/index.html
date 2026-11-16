@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>批次 <b>{{ batch.batch_id if batch else '—' }}</b></span>
+  <span>页 <b>{{ totals.pages or 0 }}</b></span>
+  <span>名录行 <b>{{ totals.exhibitors or 0 }}</b></span>
+  <span>议程场次 <b>{{ totals.sessions or 0 }}</b></span>
+  <span>原因码 <b>{{ totals.issues or 0 }}</b></span>
+  <span class="unit">run {{ batch.run_id if batch else '—' }}</span>
+</div>
+
+<div class="row">
+  <div class="field">
+    <label for="source">来源</label>
+    <select id="source">
+      <option value="all">全部</option>
+      <option value="dir">名录</option>
+      <option value="forum">议程</option>
+      <option value="export">导出件</option>
+    </select>
+  </div>
+  <button id="run" type="button">触发采集</button>
+  <button id="replay" type="button" class="ghost">重跑</button>
+  <span class="grow note" id="runmsg"></span>
+</div>
+
+{{ ui.stagebar(stages) }}
+
+<div class="gridwrap tall">
+  <table class="grid">
+    {{ ui.gridhead(["来源", "页", "状态", "声明编码", "实际编码", "字节", "行数", "sha256", "原因码"]) }}
+    <tbody>
+      {% for p in pages %}
+      <tr class="{% if p.status != 'ok' %}is-bad{% endif %}">
+        <td class="cell" tabindex="0">{{ p.source }}</td>
+        <td class="cell num" tabindex="0">{{ p.page_no }}</td>
+        <td class="cell" tabindex="0"><span class="tag {{ 'ok' if p.status == 'ok' else ('warn' if p.status == 'truncated' else 'bad') }}">{{ p.status }}</span></td>
+        <td class="cell mono" tabindex="0">{{ p.declared_charset or '—' }}</td>
+        <td class="cell mono" tabindex="0">{{ p.encoding or '—' }}</td>
+        <td class="cell num" tabindex="0">{{ p.bytes or 0 }}</td>
+        <td class="cell num" tabindex="0">{{ p.row_count }}</td>
+        <td class="cell mono" tabindex="0" title="{{ p.sha256 or '' }}">{{ (p.sha256 or '')[:12] or '—' }}</td>
+        <td class="cell code" tabindex="0">{{ p.code or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty">还没有页面。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="split-even">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">运行日志</span>
+      <span class="panel-sub">{{ pages|length }} 页</span></div>
+    <div class="panel-body flush">
+      <pre class="log" id="log">{% for line in log %}{{ line }}
+{% else %}还没有记录。{% endfor %}</pre>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">最近批次</span>
+      <span class="panel-sub">{{ the_batches|length }} 条</span></div>
+    <div class="panel-body flush">
+      <table class="grid">
+        {{ ui.gridhead(["批次", "版本", "状态", "输入摘要"], evidence=False) }}
+        <tbody>
+          {% for b in the_batches %}
+          <tr>
+            <td class="cell mono" tabindex="0"><a href="/?batch_id={{ b.batch_id }}">{{ b.batch_id }}</a></td>
+            <td class="cell num" tabindex="0">{{ b.version }}</td>
+            <td class="cell" tabindex="0">{{ b.status }}</td>
+            <td class="cell mono" tabindex="0">{{ b.input_digest[:12] }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">还没有批次。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

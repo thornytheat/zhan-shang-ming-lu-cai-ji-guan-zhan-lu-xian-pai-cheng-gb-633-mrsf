@@ -1,0 +1,80 @@
+{
+  "pages": 7,
+  "dir_pages": 5,
+  "catalog_rows": 74,
+  "exhibitors": 44,
+  "exhibitor_ok": 41,
+  "exhibitor_dup": 2,
+  "exhibitor_unplaced": 1,
+  "sessions": 24,
+  "session_conflicts": 12,
+  "fixed_sessions": 12,
+  "candidates": 68,
+  "scheduled": 25,
+  "rescheduled": 7,
+  "conflict": 14,
+  "skipped": 22,
+  "placed_stops": 32,
+  "walk_total_m": "6843.6",
+  "day1": {
+    "stops": 19,
+    "walk_m": "4210.8",
+    "open": 540,
+    "close": 1050
+  },
+  "day2": {
+    "stops": 13,
+    "walk_m": "2632.8",
+    "open": 540,
+    "close": 960
+  },
+  "booth_codes": {
+    "A1-3-05": {
+      "hall": "A1",
+      "row": "03",
+      "col": "05",
+      "x": "62",
+      "y": "52"
+    },
+    "B2-12": {
+      "hall": "B2",
+      "row": "01",
+      "col": "12"
+    },
+    "A-01": {
+      "hall": "A1",
+      "row": "01",
+      "col": "01"
+    },
+    "C3": {
+      "hall": "C1",
+      "row": "01",
+      "col": "03"
+    }
+  },
+  "distances": {
+    "same_hall_8m": "8.0",
+    "cross_hall_230m": "230.0"
+  },
+  "trap_codes": [
+    "Q_DUP_EXHIBITOR",
+    "Q_COLUMN_COUNT",
+    "Q_BOOTH_EMPTY",
+    "Q_MISSING_NAME",
+    "Q_HALL_MISMATCH",
+    "Q_BOOTH_UNPARSABLE",
+    "Q_BOOTH_AREA_ONLY",
+    "Q_BAD_AREA",
+    "T_OVERLAP",
+    "T_OUTSIDE_HOURS",
+    "T_TZ_MIXED",
+    "S_CHARSET_FALLBACK",
+    "S_BOM_STRIPPED",
+    "S_DUP_HEADER",
+    "S_PAGE_TRUNCATED",
+    "P_NO_SLOT",
+    "P_SHIFTED",
+    "P_OVERLAP_FIXED",
+    "P_OUTSIDE_HOURS"
+  ]
+}

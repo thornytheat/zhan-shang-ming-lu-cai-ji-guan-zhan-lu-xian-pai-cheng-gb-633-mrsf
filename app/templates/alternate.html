@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+{% if not result %}
+<div class="panel">
+  <div class="panel-head"><span class="panel-title">备选方案</span></div>
+  <div class="panel-body">
+    <p class="empty">还没有可对比的批次，先在首页触发一次采集。</p>
+  </div>
+</div>
+{% else %}
+<div class="totals">
+  <span>方案 <b>{{ result.plans|length }}</b> 套</span>
+  <span>跨馆上限 <b>{{ result.cap }}</b> 次/天</span>
+  <span>候选权重 <b>{{ result.invariant.total_weight }}</b></span>
+  <span>权重守恒 <b>{{ '平' if result.invariant.balanced else '差' }}</b></span>
+  <span>2-opt 反向移动 <b>{{ chosen.two_opt }}</b> 次</span>
+</div>
+
+<form class="row" method="get" action="/alternate">
+  <div class="field">
+    <label for="day">日期</label>
+    <select id="day" name="day">
+      {% for key, label in day_options %}
+      <option value="{{ key }}" {% if day == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="cap">跨馆上限</label>
+    <input id="cap" name="cap" type="number" min="1" max="12" value="{{ cap }}">
+  </div>
+  <div class="field">
+    <label for="plan">看哪套</label>
+    <select id="plan" name="plan">
+      {% for key, label in plan_options %}
+      <option value="{{ key }}" {% if plan == key %}selected{% endif %}>{{ key }} {{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit">重排</button>
+  <a class="note" href="/alternate">默认</a>
+  <span class="grow"></span>
+  <a class="note" href="/plan">主路线</a>
+</form>
+{% if form_error %}<p class="err">{{ form_error }}</p>{% endif %}
+
+<div class="stages">
+  {% for p in result.plans %}
+  <div class="stage">
+    <div class="stage-name">{{ p.id }} {{ p.title }}</div>
+    <div class="stage-nums">{{ p.totals.stops }} 站 · 权重 {{ p.totals.weight }} ·
+      {{ p.totals.walk_m }} {{ dist_unit }} · 换乘 {{ p.totals.transfer_min }} 分</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="split">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">与主方案对比</span>
+      <span class="panel-sub">负数为少</span></div>
+    <div class="panel-body flush">
+      <table class="grid" id="grid-compare">
+        {{ ui.gridhead(["方案", "站点差", "权重差", "步行差(米)", "换乘差(分)", "跨馆差"], evidence=False) }}
+        <tbody>
+          {% for c in result.comparison %}
+          <tr>
+            <td class="cell mono" tabindex="0">{{ c.plan }} {{ c.title }}</td>
+            <td class="cell num" tabindex="0">{{ '%+d'|format(c.delta_stops) }}</td>
+            <td class="cell num" tabindex="0">{{ '%+d'|format(c.delta_weight) }}</td>
+            <td class="cell num" tabindex="0">{{ c.delta_walk_m }}</td>
+            <td class="cell num" tabindex="0">{{ '%+d'|format(c.delta_transfer_min) }}</td>
+            <td class="cell num" tabindex="0">{{ '%+d'|format(c.delta_switches) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">单向通道核验</span>
+      <span class="panel-sub">对 {{ result.symmetry.checked }} 组，{{ '全对称' if result.symmetry.ok else (result.symmetry.asymmetric ~ ' 组不等') }}</span></div>
+    <div class="panel-body flush">
+      <table class="grid" id="grid-symmetry">
+        {{ ui.gridhead(["从", "到", "去程(米)", "回程(米)", "差额(米)"], evidence=False) }}
+        <tbody>
+          {% for r in result.symmetry.rows %}
+          <tr class="is-bad">
+            <td class="cell mono" tabindex="0">{{ r.from }}</td>
+            <td class="cell mono" tabindex="0">{{ r.to }}</td>
+            <td class="cell num" tabindex="0">{{ r.forward_m }}</td>
+            <td class="cell num" tabindex="0">{{ r.back_m }}</td>
+            <td class="cell num" tabindex="0">{{ r.delta_m }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">全部馆对的往返距离相等。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><span class="panel-title">原因码</span>
+    <span class="panel-sub">{{ result.codes|length }} 类</span></div>
+  <div class="panel-body flush">
+    <table class="grid" id="grid-codes">
+      {{ ui.gridhead(["原因码", "次数", "级别", "结论"], evidence=False) }}
+      <tbody>
+        {% for c in result.codes %}
+        <tr>
+          <td class="cell code mono" tabindex="0">{{ c.code }}</td>
+          <td class="cell num" tabindex="0">{{ c.count }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'bad' if c.level == 'error' else ('warn' if c.level == 'warn' else 'info') }}">{{ c.level|level }}</span></td>
+          <td class="cell" tabindex="0">{{ c.title }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="gridwrap tall">
+  <table class="grid" id="grid-alternate">
+    {{ ui.gridhead(["天", "序", "时段", "类型", "编号", "名称", "馆", "停留(分)", "前一段(米)", "换乘(分)", "权重", "状态"], evidence=False) }}
+    <tbody>
+      {% for g in groups %}
+      <tr class="is-dim"><td colspan="13" class="cell">{{ page_title }} · 第 {{ g.day }} 天</td></tr>
+      {% for r in g.rows %}
+      <tr>
+        <td class="cell num" tabindex="0">{{ r.day }}</td>
+        <td class="cell num" tabindex="0">{{ r.seq }}</td>
+        <td class="cell mono" tabindex="0">{{ r.slot }}</td>
+        <td class="cell" tabindex="0">{{ r.kind }}</td>
+        <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+        <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(22) }}</td>
+        <td class="cell mono" tabindex="0">{{ r.hall }}</td>
+        <td class="cell num" tabindex="0">{{ r.dwell }}</td>
+        <td class="cell num" tabindex="0">{{ r.walk_m|meter }}</td>
+        <td class="cell num" tabindex="0">{{ r.transfer_min }}</td>
+        <td class="cell num" tabindex="0">{{ r.weight }}</td>
+        <td class="cell" tabindex="0"><span class="tag {{ 'ok' if r.status == 'SCHEDULED' else 'warn' }}">{{ r.status_label }}</span></td>
+      </tr>
+      {% endfor %}
+      {% else %}
+      <tr><td colspan="13" class="empty">这一天没有排入的点位。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><span class="panel-title">这套没排进去的</span>
+    <span class="panel-sub">{{ unplaced|length }} 条</span></div>
+  <div class="panel-body flush">
+    <table class="grid" id="grid-alt-rest">
+      {{ ui.gridhead(["天", "类型", "编号", "名称", "馆", "状态", "原因码", "说明"], evidence=False) }}
+      <tbody>
+        {% for r in unplaced %}
+        <tr class="is-bad">
+          <td class="cell num" tabindex="0">{{ r.day }}</td>
+          <td class="cell" tabindex="0">{{ r.kind }}</td>
+          <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+          <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(20) }}</td>
+          <td class="cell mono" tabindex="0">{{ r.hall or '—' }}</td>
+          <td class="cell" tabindex="0">{{ r.status_label }}</td>
+          <td class="cell code" tabindex="0">{{ r.code or '—' }}</td>
+          <td class="cell" tabindex="0">{{ r.note|short(18) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">这套方案把候选都排进去了。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

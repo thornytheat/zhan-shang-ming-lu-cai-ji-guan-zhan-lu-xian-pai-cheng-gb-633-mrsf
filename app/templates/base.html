@@ -1,0 +1,54 @@
+{% macro gridhead(cols, evidence=True) -%}
+<thead>
+  <tr>
+    <th class="rn">#</th>
+    {% for c in cols %}<th><span class="cl">{{ loop.index0|colletter }}</span>{{ c }}</th>{% endfor %}
+    {% if evidence %}<th><span class="cl">{{ (cols|length)|colletter }}</span>行号</th>{% endif %}
+  </tr>
+</thead>
+{%- endmacro %}
+{% macro stagebar(stages) -%}
+<div class="stages">
+  {% for s in stages %}
+  <div class="stage{% if s.status == 'failed' %} is-failed{% elif s.status == 'skipped' %} is-skipped{% endif %}">
+    <div class="stage-name">{{ s.label }}</div>
+    <div class="stage-nums">{{ s.in_count }} → {{ s.out_count }} <span class="unit">隔离 {{ s.quarantine_count }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title }} · boothplan</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/layout.css">
+<link rel="stylesheet" href="/static/components.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <span class="brand">boothplan</span>
+    <nav class="tabs">
+      {% for href, label, key in nav %}
+      <a class="tab{% if page == key %} is-on{% endif %}" href="{{ href }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <span class="runmeta">
+      <span>{{ batch.batch_id if batch else '无批次' }}</span>
+      <span>v{{ batch.version if batch else '—' }}</span>
+      <span>{{ rule_version }}</span>
+      <span>{{ timezone_label }}</span>
+    </span>
+  </header>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="/static/app.js"></script>
+<script src="/static/grid.js"></script>
+<script src="/static/table.js"></script>
+</body>
+</html>

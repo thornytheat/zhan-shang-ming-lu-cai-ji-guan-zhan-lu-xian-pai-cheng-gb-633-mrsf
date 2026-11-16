@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>点位 <b>{{ payload.trip.placed if payload else 0 }}</b></span>
+  <span>未排入 <b>{{ payload.unplaced|length if payload else 0 }}</b></span>
+  <span>总步行 <b>{{ payload.trip.walk_total_m if payload else '0.0' }}</b> <span class="unit">{{ dist_unit }}</span></span>
+  <span class="unit">{{ payload.batch_id if payload else '无批次' }}</span>
+</div>
+
+<form class="row" method="get" action="/export">
+  <div class="field">
+    <label for="kind">产物</label>
+    <select id="kind" name="kind">
+      {% for key, label in kinds %}
+      <option value="{{ key }}" {% if kind == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit">查看</button>
+  {% if payload and kind != 'manifest' %}
+  <a class="note" href="/api/export/{{ kind }}.csv?batch_id={{ payload.batch_id }}">下载 CSV</a>
+  {% endif %}
+  {% if payload %}
+  <a class="note" href="/api/export/manifest.csv?batch_id={{ payload.batch_id }}">运行清单</a>
+  {% endif %}
+</form>
+
+{% if payload and kind == 'manifest' %}
+<div class="split-even">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">输入摘要</span>
+      <span class="panel-sub">{{ payload.manifest_rows|length }} 项</span></div>
+    <div class="panel-body flush">
+      <table class="grid">
+        {{ ui.gridhead(["地址", "状态", "字节", "编码", "sha256"], evidence=False) }}
+        <tbody>
+          {% for m in payload.manifest_rows %}
+          <tr>
+            <td class="cell mono" tabindex="0" title="{{ m.url }}">{{ (m.url or '')|short(20) }}</td>
+            <td class="cell" tabindex="0">{{ m.status }}</td>
+            <td class="cell num" tabindex="0">{{ m.bytes }}</td>
+            <td class="cell mono" tabindex="0">{{ m.encoding }}</td>
+            <td class="cell mono" tabindex="0">{{ m.short }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">没有运行清单。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">清单字段</span>
+      <span class="panel-sub">{{ payload.manifest.run_id or '—' }}</span></div>
+    <div class="panel-body flush">
+      <table class="grid">
+        {{ ui.gridhead(["字段", "值"], evidence=False) }}
+        <tbody>
+          {% for key, value in (payload.manifest or {}).items() %}
+          <tr>
+            <td class="cell mono" tabindex="0">{{ key }}</td>
+            <td class="cell mono" tabindex="0" title="{{ value if value is string else '' }}">{{ (value if value is string else '…')|short(26) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="stack">
+  {% for group in (payload.groups if payload else []) %}
+  <div class="gridwrap">
+    <table class="grid">
+      {{ ui.gridhead(["序", "时段", "类型", "编号", "名称", "馆", "停留(分)", "前一段(米)", "状态"], evidence=False) }}
+      <tbody>
+        {% for r in group.rows %}
+        <tr>
+          <td class="cell num" tabindex="0">{{ r.seq }}</td>
+          <td class="cell mono" tabindex="0">{{ r.slot }}</td>
+          <td class="cell" tabindex="0">{{ r.kind }}</td>
+          <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+          <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(24) }}</td>
+          <td class="cell mono" tabindex="0">{{ r.hall }}</td>
+          <td class="cell num" tabindex="0">{{ r.dwell }}</td>
+          <td class="cell num" tabindex="0">{{ r.walk_m|meter }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'ok' if r.status == 'SCHEDULED' else 'warn' }}">{{ r.status_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6">{{ group.label }} · {{ group.rows|length }} 站 · {{ group.first }}–{{ group.last }}</td>
+          <td colspan="3" class="num">合计 {{ group.walk_m }} {{ dist_unit }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="panel"><div class="empty">还没有行程，先跑一次排程。</div></div>
+  {% endfor %}
+</div>
+
+{% if payload and payload.unplaced %}
+<div class="gridwrap">
+  <table class="grid">
+    {{ ui.gridhead(["天", "类型", "编号", "名称", "馆", "状态", "原因码"], evidence=False) }}
+    <tbody>
+      {% for r in payload.unplaced %}
+      <tr class="is-bad">
+        <td class="cell num" tabindex="0">{{ r.day }}</td>
+        <td class="cell" tabindex="0">{{ r.kind }}</td>
+        <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+        <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(22) }}</td>
+        <td class="cell mono" tabindex="0">{{ r.hall or '—' }}</td>
+        <td class="cell" tabindex="0">{{ r.status_label }}</td>
+        <td class="cell code" tabindex="0" title="{{ r.note }}">{{ r.code }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

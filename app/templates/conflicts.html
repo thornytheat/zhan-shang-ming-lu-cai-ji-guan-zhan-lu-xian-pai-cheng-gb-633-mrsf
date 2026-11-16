@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>原因码 <b>{{ rows|length }}</b></span>
+  <span>议程场次 <b>{{ session_rows|length }}</b></span>
+  <span>窗口规则 <b>[start, end)</b></span>
+  <span class="unit">{{ timezone_label }}</span>
+</div>
+
+<form class="row" method="get" action="/conflicts">
+  <div class="field">
+    <label for="level">级别</label>
+    <select id="level" name="level">
+      {% for key, label in level_options %}
+      <option value="{{ key }}" {% if level == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit">筛选</button>
+  <a class="note" href="/conflicts">清空</a>
+</form>
+
+<div class="split">
+  <div class="gridwrap">
+    <table class="grid" id="grid-issues">
+      {{ ui.gridhead(["原因码", "级别", "阶段", "对象", "原值", "说明", "行号"], evidence=False) }}
+      <tbody>
+        {% for i in rows %}
+        <tr>
+          <td class="cell code" tabindex="0">{{ i.code }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'bad' if i.level == 'error' else ('warn' if i.level == 'warn' else 'mute') }}">{{ i.level|level }}</span></td>
+          <td class="cell" tabindex="0">{{ i.stage }}</td>
+          <td class="cell" tabindex="0" title="{{ i.subject }}">{{ (i.subject or '—')|short(20) }}</td>
+          <td class="cell mono" tabindex="0" title="{{ i.raw_value or '' }}">{{ (i.raw_value or '—')|short(16) }}</td>
+          <td class="cell wide" tabindex="0" title="{{ i.detail or '' }}">{{ (i.detail or '—')|short(28) }}</td>
+          <td class="cell mono" tabindex="0">{{ i.row_ref or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="empty">没有隔离行。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">原因码分布</span>
+        <span class="panel-sub">{{ distribution|length }} 类</span></div>
+      <div class="panel-body flush">
+        <table class="grid">
+          {{ ui.gridhead(["原因码", "级别", "条数"], evidence=False) }}
+          <tbody>
+            {% for d in distribution %}
+            <tr>
+              <td class="cell code" tabindex="0">{{ d.code }}</td>
+              <td class="cell" tabindex="0">{{ d.level|level }}</td>
+              <td class="cell num" tabindex="0">{{ d.count }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty">没有分布。</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gridwrap">
+  <table class="grid" id="grid-sessions">
+    {{ ui.gridhead(["场次", "主题", "馆", "天", "开始", "结束", "时长(分)", "时区写法", "原因码"], evidence=False) }}
+    <tbody>
+      {% for s in session_rows %}
+      <tr class="{% if s.code != '—' %}is-bad{% endif %}">
+        <td class="cell mono" tabindex="0">{{ s.session_id }}</td>
+        <td class="cell" tabindex="0" title="{{ s.title }}">{{ s.title|short(22) }}</td>
+        <td class="cell mono" tabindex="0">{{ s.hall }}</td>
+        <td class="cell num" tabindex="0">{{ s.day }}</td>
+        <td class="cell mono" tabindex="0">{{ s.start_local }}</td>
+        <td class="cell mono" tabindex="0">{{ s.end_local }}</td>
+        <td class="cell num" tabindex="0">{{ s.minutes }}</td>
+        <td class="cell mono" tabindex="0" title="{{ s.tz }}">{{ s.tz|short(18) }}</td>
+        <td class="cell code" tabindex="0" title="{{ s.detail }}">{{ s.code }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty">还没有议程。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

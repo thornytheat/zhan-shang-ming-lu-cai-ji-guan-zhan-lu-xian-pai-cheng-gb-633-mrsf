@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    image: boothplan:local
+    environment:
+      BOOTHPLAN_DB: /data/boothplan.sqlite
+      SAMPLE_SITE_BASE: http://sample-site
+      SAMPLE_SITE_DIR: /app/sample_site
+      EVAL_DATE: "2026-11-15"
+      TZ: Asia/Shanghai
+    ports:
+      - "18202:8000"
+    volumes:
+      - boothplan-data:/data
+    depends_on:
+      sample-site:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8000/healthz', timeout=2.0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
+  sample-site:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./sample_site:/usr/share/nginx/html:ro
+    ports:
+      - "19202:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/index.html"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+volumes:
+  boothplan-data:

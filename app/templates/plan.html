@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>候选 <b>{{ totals.candidates or 0 }}</b></span>
+  <span>排入 <b>{{ totals.scheduled or 0 }}</b></span>
+  <span>改期 <b>{{ totals.rescheduled or 0 }}</b></span>
+  <span>冲突 <b>{{ totals.conflict or 0 }}</b></span>
+  <span>跳过 <b>{{ totals.skipped or 0 }}</b></span>
+  <span>总步行 <b>{{ totals.walk_total_m or '0.0' }}</b> <span class="unit">{{ dist_unit }}</span></span>
+</div>
+
+<form class="row" method="get" action="/plan">
+  <div class="field">
+    <label for="day">日期</label>
+    <select id="day" name="day">
+      {% for key, label in day_options %}
+      <option value="{{ key }}" {% if day == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit">查看</button>
+  <a class="note" href="/plan">两天</a>
+  <span class="grow"></span>
+  <a class="note" href="/export?kind=itinerary">行程单</a>
+</form>
+
+{% if days %}
+<div class="stages">
+  {% for d in days %}
+  <div class="stage">
+    <div class="stage-name">第 {{ d.day }} 天 · {{ d.halls }} 馆</div>
+    <div class="stage-nums">{{ d.stops }} 站 · {{ d.walk_m }} {{ dist_unit }}</div>
+  </div>
+  {% endfor %}
+  <div class="stage">
+    <div class="stage-name">固定论坛窗</div>
+    <div class="stage-nums">{{ totals.conflict or 0 }} 冲突</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="gridwrap tall">
+  <table class="grid" id="grid-route">
+    {{ ui.gridhead(["天", "序", "时段", "类型", "编号", "名称", "馆", "停留(分)", "前一段(米)", "状态"], evidence=False) }}
+    <tbody>
+      {% for r in placed %}
+      <tr>
+        <td class="cell num" tabindex="0">{{ r.plan_day }}</td>
+        <td class="cell num" tabindex="0">{{ r.seq }}</td>
+        <td class="cell mono" tabindex="0">{{ r.arrival_utc|clock }}–{{ r.depart_utc|clock }}</td>
+        <td class="cell" tabindex="0">{{ r.kind }}</td>
+        <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+        <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(22) }}</td>
+        <td class="cell mono" tabindex="0">{{ r.hall }}</td>
+        <td class="cell num" tabindex="0">{{ r.dwell_min }}</td>
+        <td class="cell num" tabindex="0">{{ r.walk_m|meter }}</td>
+        <td class="cell" tabindex="0"><span class="tag {{ 'ok' if r.status == 'SCHEDULED' else 'warn' }}">{{ classify_labels[r.status] }}</span></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">还没有排入点位。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="split">
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">未排入</span>
+      <span class="panel-sub">{{ rest|length }} 条</span></div>
+    <div class="panel-body flush">
+      <table class="grid" id="grid-rest">
+        {{ ui.gridhead(["天", "类型", "编号", "名称", "馆", "状态", "原因码"], evidence=False) }}
+        <tbody>
+          {% for r in rest %}
+          <tr class="is-bad">
+            <td class="cell num" tabindex="0">{{ r.plan_day }}</td>
+            <td class="cell" tabindex="0">{{ r.kind }}</td>
+            <td class="cell mono" tabindex="0">{{ r.ref }}</td>
+            <td class="cell" tabindex="0" title="{{ r.name }}">{{ r.name|short(20) }}</td>
+            <td class="cell mono" tabindex="0">{{ r.hall or '—' }}</td>
+            <td class="cell" tabindex="0">{{ classify_labels[r.status] }}</td>
+            <td class="cell code" tabindex="0">{{ r.code or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="empty">全部候选都已排入。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">对账</span>
+      <span class="panel-sub">{{ '平' if reconciliation and reconciliation.all_balanced else '有差异' }}</span></div>
+    <div class="panel-body flush">
+      <table class="grid">
+        {{ ui.gridhead(["账", "左", "右", "结论"], evidence=False) }}
+        <tbody>
+          {% for a in (reconciliation.accounts if reconciliation else []) %}
+          <tr>
+            <td class="cell" tabindex="0">{{ a.account }}</td>
+            <td class="cell num" tabindex="0" title="{{ a.left_label }}">{{ a.left }}</td>
+            <td class="cell mono" tabindex="0">{{ a.right }}</td>
+            <td class="cell" tabindex="0"><span class="tag {{ 'ok' if a.balanced else 'bad' }}">{{ '平' if a.balanced else '差' }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">还没有对账结果。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
