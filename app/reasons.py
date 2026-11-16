@@ -137,6 +137,9 @@ REASONS = {
     "B_STALE_REJECTED": _r(
         "B_STALE_REJECTED", WARN, "route",
         "提交的批次版本早于当前版本，已拒绝", "版本号只能前进，陈旧提交不覆盖新结果"),
+    "R_CONSENT_WITHDRAWN": _r(
+        "R_CONSENT_WITHDRAWN", INFO, "booth",
+        "展商撤回对接人授权，姓名与备注原文已永久清除", "回执保留来源、行号、原因码与数量，原文不留"),
     # ---- M6 导出 ----
     "X_EMPTY_SELECTION": _r(
         "X_EMPTY_SELECTION", WARN, "export",

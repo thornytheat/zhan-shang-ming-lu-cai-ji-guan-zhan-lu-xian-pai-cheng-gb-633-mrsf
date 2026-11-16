@@ -12,10 +12,10 @@ from ..m3_windows import service as window_service
 from ..m4_route import distance as distance_mod
 from . import csv_out, itinerary
 
-KINDS = ("itinerary", "evidence", "segment", "unplaced", "manifest")
+KINDS = ("itinerary", "evidence", "segment", "unplaced", "manifest", "receipt")
 KIND_LABELS = {
     "itinerary": "行程单", "evidence": "隔离证据", "segment": "分段明细",
-    "unplaced": "未排入候选", "manifest": "运行清单",
+    "unplaced": "未排入候选", "manifest": "运行清单", "receipt": "清除回执",
 }
 
 
@@ -27,6 +27,7 @@ def build(store, batch: dict, kind: str = "itinerary") -> dict:
     manifest_doc = store.load_manifest(bid)
     positions = _positions(store.load_exhibitors(bid), store.load_forums(bid))
     trip = itinerary.build(stops, days)
+    receipt_rows = receipt_evidence(store, bid)
     return {
         "kind": kind,
         "label": KIND_LABELS.get(kind, kind),
@@ -35,7 +36,12 @@ def build(store, batch: dict, kind: str = "itinerary") -> dict:
         "groups": itinerary.day_groups(trip["rows"]),
         "rows": trip["rows"],
         "unplaced": itinerary.skipped_rows(stops),
+        # 证据 CSV = 原生隔离证据 + 清除回执；回执行带来源、行号、原因码与数量，
+        # 不包含姓名与备注原文。页面与接口的 issues 计数仍只算隔离证据。
         "issues": issues,
+        "evidence_rows": issues + receipt_rows,
+        "receipts": receipts_for_batch(store, bid),
+        "receipt_rows": receipt_rows,
         "segments": _segments(stops, positions),
         "manifest": manifest_pick(manifest_doc),
         "manifest_rows": manifest_digest_rows(manifest_doc),
@@ -51,7 +57,7 @@ def as_csv(kind: str, payload: dict) -> tuple[str, str]:
                 csv_out.itinerary_csv(payload["rows"]))
     if kind == "evidence":
         return (f"{payload['batch_id']}-evidence.csv",
-                csv_out.evidence_csv(payload["issues"]))
+                csv_out.evidence_csv(payload.get("evidence_rows", payload["issues"])))
     if kind == "segment":
         days = payload["trip"]["days"]
         grouped = [{"day": day,
@@ -64,7 +70,58 @@ def as_csv(kind: str, payload: dict) -> tuple[str, str]:
     if kind == "manifest":
         return (f"{payload['batch_id']}-manifest.json",
                 json.dumps(payload["manifest"], ensure_ascii=False, indent=2))
+    if kind == "receipt":
+        return (f"{payload['batch_id']}-receipt.csv",
+                csv_out.receipt_csv(payload["receipts"]))
     raise ValueError(f"未知导出类型 {kind!r}；可选 " + " / ".join(KINDS))
+
+
+def receipts_for_batch(store, batch_id: str) -> list[dict]:
+    """与该批次有关的清除回执（只取命中该批次的 target 之后的副本）。"""
+    out: list[dict] = []
+    for receipt in store.list_redactions(limit=500):
+        targets = [target for target in receipt["targets"]
+                   if target["batch_id"] == batch_id and target["matched"]]
+        if not targets:
+            continue
+        copy = dict(receipt)
+        copy["targets"] = targets
+        copy["summary"] = _target_summary(targets)
+        out.append(copy)
+    return out
+
+
+def receipt_evidence(store, batch_id: str) -> list[dict]:
+    """把回执转成证据行：原因码、对象、字段、说明、行号、来源，无原文。"""
+    rows: list[dict] = []
+    for receipt in receipts_for_batch(store, batch_id):
+        for target in receipt["targets"]:
+            rows.append({
+                "code": receipt["reason_code"],
+                "level": "info",
+                "stage": "booth",
+                "subject": receipt["subject"].get("name")
+                           or receipt["subject"].get("ex_id") or "",
+                "field": receipt["fields_label"],
+                "raw_value": "",
+                "detail": (f"回执 {receipt['receipt_id']}：命中 {target['matched']} 行，"
+                           f"清除姓名 {target['owner_cleared']} 行、备注 "
+                           f"{target['note_cleared']} 行，原文已永久清除"),
+                "source_url": target.get("source_url") or "",
+                "row_ref": " ".join(target.get("row_refs") or []),
+            })
+    return rows
+
+
+def _target_summary(targets: list[dict]) -> dict:
+    return {
+        "batches": len(targets),
+        "pending_batches": sum(1 for t in targets if t["status"] == "pending"),
+        "matched_rows": sum(t["matched"] for t in targets),
+        "scrubbed_rows": sum(t["scrubbed"] for t in targets),
+        "owner_cleared": sum(t["owner_cleared"] for t in targets),
+        "note_cleared": sum(t["note_cleared"] for t in targets),
+    }
 
 
 def summary(payload: dict) -> dict:

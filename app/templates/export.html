@@ -23,10 +23,35 @@
   {% endif %}
   {% if payload %}
   <a class="note" href="/api/export/manifest.csv?batch_id={{ payload.batch_id }}">运行清单</a>
+  <a class="note" href="/api/export/receipt.csv?batch_id={{ payload.batch_id }}">清除回执</a>
   {% endif %}
 </form>
 
-{% if payload and kind == 'manifest' %}
+{% if payload and kind == 'receipt' %}
+<div class="panel">
+  <div class="panel-head"><span class="panel-title">清除回执</span>
+    <span class="panel-sub">{{ payload.receipt_rows|length }} 行 · 原文不留</span></div>
+  <div class="panel-body flush">
+    <table class="grid">
+      {{ ui.gridhead(["原因码", "对象", "字段", "说明", "行号", "来源"], evidence=False) }}
+      <tbody>
+        {% for r in payload.receipt_rows %}
+        <tr>
+          <td class="cell code" tabindex="0">{{ r.code }}</td>
+          <td class="cell" tabindex="0" title="{{ r.subject }}">{{ (r.subject or '—')|short(18) }}</td>
+          <td class="cell" tabindex="0">{{ r.field }}</td>
+          <td class="cell wide" tabindex="0" title="{{ r.detail }}">{{ r.detail|short(30) }}</td>
+          <td class="cell mono" tabindex="0" title="{{ r.row_ref }}">{{ (r.row_ref or '—')|short(20) }}</td>
+          <td class="cell mono" tabindex="0" title="{{ r.source_url }}">{{ (r.source_url or '—')|short(20) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">该批次没有撤回清除回执。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif payload and kind == 'manifest' %}
 <div class="split-even">
   <div class="panel">
     <div class="panel-head"><span class="panel-title">输入摘要</span>

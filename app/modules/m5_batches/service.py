@@ -52,6 +52,9 @@ def run(*, settings, store, source: str = "all", fetcher=None,
     if mode == "full" and not resume_of:
         hit = replay(store, batch["batch_key"])
         if hit is not None:
+            # 命中旧批次不新增行；顺手把这一批还没清完的撤回目标补清，
+            # 重放不能成为「原文继续留在库里」的理由。
+            store.scrub_pending_for_batch(hit["batch_id"])
             return replay_payload(hit, store.load_stages(hit["batch_id"]),
                                              store.load_totals(hit["batch_id"]))
     batch["version"] = next_version(store, batch["batch_key"])

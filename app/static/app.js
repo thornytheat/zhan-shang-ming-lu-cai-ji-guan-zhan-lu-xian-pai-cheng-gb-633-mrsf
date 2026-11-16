@@ -91,6 +91,85 @@ function bind() {
   if (replayButton) {
     replayButton.addEventListener("click", () => run(true));
   }
+  bindWithdraw();
+}
+
+/* 撤回清除：主体可选名称或编号，再加可选的展位号定位。
+   请求体与 /api/redactions 一致，成功后刷新回执页。 */
+function withdrawBody() {
+  const subject = document.getElementById("subject");
+  const booth = document.getElementById("booth");
+  const text = subject ? subject.value.trim() : "";
+  if (!text) {
+    throw new Error("请填展商名称或编号");
+  }
+  const body = /^E[0-9a-f]{6,}$/i.test(text) ? { ex_id: text } : { name: text };
+  const boothText = booth ? booth.value.trim() : "";
+  if (boothText) {
+    body.booth = boothText;
+  }
+  return body;
+}
+
+async function withdraw() {
+  if (state.busy) {
+    return;
+  }
+  state.busy = true;
+  let data;
+  try {
+    data = await post("/api/redactions", withdrawBody());
+  } catch (error) {
+    state.busy = false;
+    setWithdrawMessage(error.message, true);
+    return;
+  }
+  state.busy = false;
+  setWithdrawMessage(
+    "回执 " + data.receipt_id + " · " + data.state_label +
+      " · 命中 " + data.summary.matched_rows + " 行",
+    false
+  );
+  window.location.href = "/redactions?receipt_id=" + data.receipt_id;
+}
+
+async function resumeWithdraw(button) {
+  if (state.busy) {
+    return;
+  }
+  state.busy = true;
+  try {
+    const data = await post(
+      "/api/redactions/" + button.dataset.receipt + "/resume",
+      {}
+    );
+    setWithdrawMessage("回执 " + data.receipt_id + " · " + data.state_label, false);
+    window.location.href = "/redactions?receipt_id=" + data.receipt_id;
+  } catch (error) {
+    setWithdrawMessage(error.message, true);
+  } finally {
+    state.busy = false;
+  }
+}
+
+function setWithdrawMessage(text, bad) {
+  const node = document.getElementById("withdrawmsg");
+  if (!node) {
+    return;
+  }
+  node.textContent = text;
+  node.classList.toggle("err", Boolean(bad));
+}
+
+function bindWithdraw() {
+  const button = document.getElementById("withdraw");
+  if (button) {
+    button.addEventListener("click", withdraw);
+  }
+  const resumeButton = document.getElementById("resume");
+  if (resumeButton) {
+    resumeButton.addEventListener("click", () => resumeWithdraw(resumeButton));
+  }
 }
 
 document.addEventListener("DOMContentLoaded", bind);

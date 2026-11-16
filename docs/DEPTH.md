@@ -1,6 +1,6 @@
 # 深度登记 boothplan
 
-- 规模：中型（7 个功能模块，页面 7 个，测试见 tests/）
+- 规模：中型（8 个功能模块，页面 8 个，测试见 tests/）
 - 核心规则：展位号解析成 馆-排-位 与平面坐标（跨馆加 150 米），论坛时间窗左闭右开，
   固定窗先落位、展商按优先级贪心插入最佳位置，再用带窗 2-opt 降低总步行。
   M7 在同一批候选上按三套取舍各排一次，换乘分钟计入到站，距离按方向逐段相加。
@@ -18,6 +18,7 @@
 | M5 批次版本 | 查批次、阶段计数、版本链与续跑能力 | GET /api/batches · GET /batches | `app/modules/m5_batches/service.py` `app/modules/m5_batches/history.py` | `tests/test_batches.py` |
 | M6 行程导出 | 导出行程单、证据、分段与运行清单 | GET /api/export · GET /export | `app/modules/m6_export/csv_out.py` `app/modules/m6_export/itinerary.py` `app/modules/m6_export/service.py` | `tests/test_export.py` |
 | M7 备选方案 | 三套取舍各排一次，切方案看损失与换乘 | GET /api/alternate · GET /alternate | `app/modules/m7_alternate/handler.py` `app/modules/m7_alternate/service.py` `app/modules/m7_alternate/directed.py` `app/modules/m7_alternate/limits.py` | `tests/test_m7_alternate.py` |
+| M8 撤回清除 | 撤回对接人授权，清姓名与备注原文，留回执，中断续跑 | POST /api/redactions · GET /redactions | `app/modules/m8_redaction/handler.py` `app/modules/m8_redaction/service.py` `app/redaction.py` `app/store.py` | `tests/test_redaction.py` |
 
 ## 陷阱登记
 
@@ -37,6 +38,8 @@
 | TRAP-23 | 09:30-10:30 与 10:30-11:15 相邻场次 | 两端都算，重复计入冲突 | 左闭右开 `[start, end)` | `app/modules/m3_windows/windows.py:112` | `tests/test_windows.py::test_half_open_endpoints_touch_not_overlap` |
 | TRAP-27 | 时间放得下，但当天跨馆已到上限 | 报成 P_NO_SLOT（当天排满），提高其他时段也没用 | 上限与时间分开判：先看时间能不能放，再看跨馆次数，超限给 M7_HALL_CAP | `app/modules/m7_alternate/service.py` | `tests/test_m7_alternate.py::test_hall_cap_reported_not_no_slot` |
 | TRAP-28 | 二层扶梯单向，A2→B2 比 B2→A2 少 60 米 | 按对称距离算，2-opt 增量公式把反向也算成同样的米数 | 距离函数带方向，逐段相加；全馆两两核验，不相等的对单独列出 | `app/modules/m7_alternate/directed.py` | `tests/test_m7_alternate.py::test_one_way_bridge_detected_as_asymmetric` |
+| TRAP-31 | 撤回清除把整批删掉或只遮挡字段 | 整批删丢来源、行号与数量；遮挡留原文，重新采集又写回来 | 只把姓名与备注原文改成清除标记，其余列不动；回执记来源/行号/原因码/数量 | `app/store.py` `app/redaction.py` | `tests/test_redaction.py::test_withdraw_scrubs_owner_and_note_but_keeps_audit_fields` |
+| TRAP-32 | 清除中断后重跑，回执一变二；回放旧名录把原文恢复 | 每次请求新建回执；采集写路径不看撤回状态 | 回执号由「主体 + 字段」派生、唯一约束；写路径先读规则再落行，读路径同样套规则 | `app/modules/m8_redaction/service.py` `app/store.py:immediate` | `tests/test_redaction.py::test_same_withdrawal_reuses_receipt_and_is_idempotent` `tests/test_redaction.py::test_crawl_during_withdrawal_writes_marker_not_text` |
 
 ## 对账规则
 
@@ -68,6 +71,19 @@
 | 原子性 | 一次运行先删后插、单事务；失败只写批次与阶段 | `app/store.py:148` |
 | 记忆上限 | 按页读、按页解析，不整站读入 | `app/modules/m1_catalog/paging.py:96` |
 | 备选方案 | 同一批候选三套取舍，权重守恒，跨馆次数有上限 | `GET /api/alternate` 的 `invariant` 与 `comparison` |
+| 清除回执 | 每次撤回一张回执：主体、字段、来源、行号、原因码、命中/清除数量，原文不留 | `GET /api/redactions`、`GET /api/export/receipt.csv` |
+| 清除续跑 | 每个受影响批次一个事务、一个 target；中断后从剩余批次续跑，回执号不变 | `POST /api/redactions/{id}/resume`、`tests/test_redaction.py` |
+
+## 撤回清除账（M8）
+
+- 清除账：同一回执的 matched = scrubbed + 未命中该字段的行；`scrubbed_rows` 只增不减，
+  续跑完成后 `pending_batches = 0`。
+- 保留账：回执里 `retained = 来源 / 行号 / 原因码 / 数量`，展商名、展位、来源地址、
+  行号与原因码一律不动，页面与证据 CSV 都能按这些定位到原行。
+- 幂等账：回执号 = `R` + sha256(`v1|主体|字段`) 前 12 位；同一撤回请求重发、续跑、
+  补扫新批次都不新增回执。
+- 写路径账：`save_run` 在 `BEGIN IMMEDIATE` 事务里先读回执规则再写名录行；回执存在
+  （包括进行中）写入的就是清除标记，重放旧名录与并发采集都无法恢复原文。
 
 ## 已知不覆盖
 

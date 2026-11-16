@@ -16,11 +16,17 @@ def api_export(batch_id: str | None = None, kind: str = "itinerary",
                ctx: Ctx = Depends(get_ctx)) -> dict:
     batch = _batch(ctx, batch_id)
     payload = service.build(ctx.store, batch, kind)
-    return {"batch_id": batch["batch_id"], "kind": kind,
+    body = {"batch_id": batch["batch_id"], "kind": kind,
             "summary": service.summary(payload),
             "rows": payload["rows"],
             "unplaced": payload["unplaced"],
             "manifest": payload["manifest"]}
+    if kind == "receipt":
+        body["receipts"] = payload["receipts"]
+        body["rows"] = payload["receipt_rows"]
+        body["unplaced"] = []
+        body["summary"]["receipt_rows"] = len(payload["receipt_rows"])
+    return body
 
 
 @router.get("/api/export/{kind}.csv")

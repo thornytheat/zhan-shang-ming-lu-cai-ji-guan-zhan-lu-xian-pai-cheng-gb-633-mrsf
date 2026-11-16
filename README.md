@@ -15,6 +15,7 @@
 | M5 批次版本 | 批次、阶段、版本链、续跑 | `GET /api/batches` `GET /batches` | 批次键幂等、版本递增、陈旧提交拒绝 |
 | M6 行程导出 | 行程单 / 证据 / 分段 / 清单 | `GET /api/export` `GET /export` | Decimal 序列化、证据带行号与原因码 |
 | M7 备选方案 | 三套取舍各排一次，切方案看损失 | `GET /api/alternate` `GET /alternate` | 权重守恒、跨馆上限、换乘并入到站、方向化距离 |
+| M8 撤回清除 | 撤回对接人授权，清姓名与备注原文，留可审计回执 | `POST /api/redactions` `GET /redactions` | 回执幂等、逐批可续跑、写路径拦截、原文不留 |
 
 ## 核心规则
 
@@ -26,6 +27,8 @@
 5. 备选方案：同一批候选排三套（主方案 / 减站换权重 / 限跨馆），
    权重账「排入 + 未排入 = 候选权重合计」三套各自成立。
 6. 跨馆换乘 4 分钟计入到站；二层 A2→B2 是单向扶梯，反向多 60 米，距离按方向相加。
+7. 撤回清除只清姓名与备注原文；回执留主体、来源、行号、原因码与数量，同一撤回请求
+   只有一张回执，中断按批次续跑，重放旧名录或并发采集都不会把原文写回来。
 
 字段与计算方式见 `docs/DATA-DICTIONARY.md`，陷阱与流水线义务见 `docs/DEPTH.md`。
 
@@ -49,12 +52,18 @@ curl -s 'http://127.0.0.1:18202/api/alternate?plan=C&cap=3' | head -c 400
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:18202/api/crawl \
   -H 'Content-Type: application/json' -d '{"mode":"delta"}'   # 400
 curl -s -o /dev/null -w '%{http_code}\n' 'http://127.0.0.1:18202/api/alternate?cap=99'   # 400
+# 撤回清除：同一请求重发复用同一张回执；中断后调 resume 续跑
+curl -s -X POST http://127.0.0.1:18202/api/redactions \
+  -H 'Content-Type: application/json' -d '{"name":"西门子工业软件"}'
+curl -s http://127.0.0.1:18202/api/redactions
+curl -s 'http://127.0.0.1:18202/api/export/receipt.csv' -o receipt.csv
 ```
 
 ## 页面
 
 `/` 名录采信 · `/exhibitors` 展商网格 · `/conflicts` 冲突隔离 ·
-`/plan` 路线排程 · `/batches` 批次版本 · `/export` 行程单 · `/alternate` 备选方案
+`/plan` 路线排程 · `/batches` 批次版本 · `/export` 行程单 · `/alternate` 备选方案 ·
+`/redactions` 撤回清除
 
 ## 测试
 
@@ -65,9 +74,9 @@ pytest -q
 ## 目录
 
 ```
-app/{main,config,errors,reasons,manifest,store,web}.py
-app/modules/m1_catalog/ … m7_alternate/
-app/templates/  base.html + 7 页
+app/{main,config,errors,reasons,manifest,redaction,store,web}.py
+app/modules/m1_catalog/ … m8_redaction/
+app/templates/  base.html + 8 页
 app/static/     theme.css layout.css components.css app.js grid.js table.js
 docs/           DEPTH.md DATA-DICTIONARY.md
 tests/          conftest.py + 每模块 1 个测试文件 + test_e2e.py + fixtures/

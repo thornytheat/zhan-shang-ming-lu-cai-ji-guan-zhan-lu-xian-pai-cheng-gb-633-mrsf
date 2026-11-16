@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% import "base.html" as ui %}
+{% block content %}
+<div class="totals">
+  <span>回执 <b>{{ rows|length }}</b></span>
+  <span>当前 <b>{{ current.receipt_id if current else '—' }}</b></span>
+  <span>状态 <b>{{ current.state_label if current else '—' }}</b></span>
+  <span>命中行 <b>{{ current.summary.matched_rows if current else 0 }}</b></span>
+  <span>清除行 <b>{{ current.summary.scrubbed_rows if current else 0 }}</b></span>
+  <span class="unit">原文永久清除 · 来源、行号、原因码与数量保留</span>
+</div>
+
+<div class="row" id="withdraw-form">
+  <div class="field">
+    <label for="subject">展商（名称或编号）</label>
+    <input id="subject" name="subject" type="text" placeholder="展商名称 或 ex_id">
+  </div>
+  <div class="field">
+    <label for="booth">展位号（可选）</label>
+    <input id="booth" name="booth" type="text" placeholder="同名分馆时定位">
+  </div>
+  <button id="withdraw" type="button">撤回并清除</button>
+  <span class="grow note" id="withdrawmsg"></span>
+</div>
+
+<div class="split">
+  <div class="gridwrap">
+    <table class="grid" id="grid-receipts">
+      {{ ui.gridhead(["回执", "主体", "字段", "批次", "命中", "清除", "状态", "创建"], evidence=False) }}
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="cell mono" tabindex="0"><a href="/redactions?receipt_id={{ r.receipt_id }}">{{ r.receipt_id }}</a></td>
+          <td class="cell" tabindex="0" title="{{ r.subject.name or r.subject.ex_id }}">{{ (r.subject.name or r.subject.ex_id or '—')|short(18) }}</td>
+          <td class="cell" tabindex="0">{{ r.fields_label }}</td>
+          <td class="cell num" tabindex="0">{{ r.summary.batches }}</td>
+          <td class="cell num" tabindex="0">{{ r.summary.matched_rows }}</td>
+          <td class="cell num" tabindex="0">{{ r.summary.scrubbed_rows }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'ok' if r.state == 'done' else 'warn' }}">{{ r.state_label }}</span></td>
+          <td class="cell mono" tabindex="0">{{ r.created_at[:16]|replace('T', ' ') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">还没有撤回清除回执。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="stack">
+    {% if current %}
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">回执</span>
+        <span class="panel-sub">{{ current.receipt_id }} · {{ current.state_label }}</span></div>
+      <div class="panel-body flush">
+        <table class="grid">
+          {{ ui.gridhead(["字段", "值"], evidence=False) }}
+          <tbody>
+            <tr><td class="cell" tabindex="0">撤回主体</td>
+                <td class="cell" tabindex="0">{{ current.subject.name or current.subject.ex_id or '—' }}</td></tr>
+            <tr><td class="cell" tabindex="0">展位号</td>
+                <td class="cell mono" tabindex="0">{{ current.subject.booth or '—' }}</td></tr>
+            <tr><td class="cell" tabindex="0">清除字段</td>
+                <td class="cell" tabindex="0">{{ current.fields_label }}</td></tr>
+            <tr><td class="cell" tabindex="0">原因码</td>
+                <td class="cell code" tabindex="0">{{ current.reason_code }}</td></tr>
+            <tr><td class="cell" tabindex="0">创建 / 完成</td>
+                <td class="cell mono" tabindex="0">{{ current.created_at[:16]|replace('T', ' ') }} / {{ (current.completed_at or '—')[:16]|replace('T', ' ') }}</td></tr>
+            <tr><td class="cell" tabindex="0">命中 / 清除行</td>
+                <td class="cell num" tabindex="0">{{ current.summary.matched_rows }} / {{ current.summary.scrubbed_rows }}</td></tr>
+            <tr><td class="cell" tabindex="0">姓名 / 备注清除</td>
+                <td class="cell num" tabindex="0">{{ current.summary.owner_cleared }} / {{ current.summary.note_cleared }}</td></tr>
+            <tr><td class="cell" tabindex="0">保留内容</td>
+                <td class="cell" tabindex="0">来源 · 行号 · 原因码 · 数量</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if current.summary.pending_batches %}
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">未清完</span>
+        <span class="panel-sub">{{ current.summary.pending_batches }} 个批次</span></div>
+      <div class="panel-body">
+        <button id="resume" type="button" data-receipt="{{ current.receipt_id }}">续跑清除</button>
+        <span class="note" id="resumemsg"></span>
+      </div>
+    </div>
+    {% endif %}
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">证据下载</span>
+        <span class="panel-sub">来源 / 行号 / 原因码 / 数量</span></div>
+      <div class="panel-body">
+        <a class="note" href="/api/redactions/{{ current.receipt_id }}/receipt.csv">回执 CSV</a>
+        <a class="note" href="/api/export/receipt.csv?batch_id={{ current.targets[0].batch_id if current.targets else '' }}">本批次回执</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if current %}
+<div class="stack">
+  <div class="gridwrap">
+    <table class="grid" id="grid-targets">
+      {{ ui.gridhead(["批次", "状态", "命中", "清除", "姓名", "备注", "来源", "行号", "完成"], evidence=False) }}
+      <tbody>
+        {% for t in current.targets %}
+        <tr class="{% if t.status == 'pending' %}is-bad{% endif %}">
+          <td class="cell mono" tabindex="0">{{ t.batch_id }}</td>
+          <td class="cell" tabindex="0"><span class="tag {{ 'ok' if t.status == 'scrubbed' else 'warn' }}">{{ t.status|status }}</span></td>
+          <td class="cell num" tabindex="0">{{ t.matched }}</td>
+          <td class="cell num" tabindex="0">{{ t.scrubbed }}</td>
+          <td class="cell num" tabindex="0">{{ t.owner_cleared }}</td>
+          <td class="cell num" tabindex="0">{{ t.note_cleared }}</td>
+          <td class="cell mono" tabindex="0" title="{{ t.source_url }}">{{ (t.source_url or '—')|short(24) }}</td>
+          <td class="cell mono" tabindex="0" title="{{ t.row_refs|join(' ') }}">{{ (t.row_refs|join(' '))|short(24) }}</td>
+          <td class="cell mono" tabindex="0">{{ (t.cleared_at or '—')[:16]|replace('T', ' ') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="empty">该回执没有命中批次。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">清除流水</span>
+      <span class="panel-sub">{{ current.events|length }} 条</span></div>
+    <div class="panel-body flush">
+      <table class="grid">
+        {{ ui.gridhead(["序", "时间", "动作", "批次", "说明"], evidence=False) }}
+        <tbody>
+          {% for e in current.events %}
+          <tr>
+            <td class="cell num" tabindex="0">{{ e.seq }}</td>
+            <td class="cell mono" tabindex="0">{{ e.at[:19]|replace('T', ' ') }}</td>
+            <td class="cell" tabindex="0">{{ e.action }}</td>
+            <td class="cell mono" tabindex="0">{{ e.batch_id or '—' }}</td>
+            <td class="cell wide" tabindex="0">{{ e.detail or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

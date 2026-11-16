@@ -16,6 +16,9 @@ ITINERARY_HEADER = ("日期", "序号", "时段", "类型", "编号", "名称", 
 EVIDENCE_HEADER = ("原因码", "级别", "阶段", "对象", "字段", "原值", "说明",
                    "行号", "来源")
 SEGMENT_HEADER = ("日期", "序号", "起点", "终点", "展馆", "距离(米)", "步行(分)")
+RECEIPT_HEADER = ("回执", "撤回主体", "清除字段", "批次", "状态", "命中行数",
+                  "清除行数", "姓名清除", "备注清除", "来源", "行号", "原因码",
+                  "完成时间")
 
 
 def _writer() -> tuple[io.StringIO, object]:
@@ -66,6 +69,36 @@ def unplaced_csv(rows: list[dict]) -> str:
     for row in rows:
         writer.writerow((row["day"], row["ref"], row["name"], row["kind"],
                          row["hall"], row["status_label"], row["code"], row["note"]))
+    return "\ufeff" + buffer.getvalue()
+
+
+def receipt_csv(receipts: list[dict]) -> str:
+    """清除回执：一行 = 一个批次的一次命中，带来源、行号、原因码与数量。
+
+    回执里没有姓名与备注原文，只有主体、字段、数量与定位信息，可直接交审计。
+    """
+    buffer, writer = _writer()
+    writer.writerow(RECEIPT_HEADER)
+    for receipt in receipts:
+        subject = receipt.get("subject") or {}
+        label = subject.get("name") or subject.get("ex_id") or "—"
+        for target in receipt.get("targets") or []:
+            if not target.get("matched"):
+                continue
+            writer.writerow((
+                receipt["receipt_id"], label,
+                receipt.get("fields_label") or " + ".join(receipt.get("fields") or []),
+                target.get("batch_id") or "",
+                target.get("status") or "",
+                target.get("matched") or 0,
+                target.get("scrubbed") or 0,
+                target.get("owner_cleared") or 0,
+                target.get("note_cleared") or 0,
+                target.get("source_url") or "",
+                " ".join(target.get("row_refs") or []),
+                receipt.get("reason_code") or "",
+                target.get("cleared_at") or receipt.get("completed_at") or "",
+            ))
     return "\ufeff" + buffer.getvalue()
 
 

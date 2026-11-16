@@ -26,10 +26,12 @@ NAV = (
     ("/batches", "批次版本", "batches"),
     ("/export", "行程单", "export"),
     ("/alternate", "备选方案", "alternate"),
+    ("/redactions", "撤回清除", "redactions"),
 )
 STATUS_LABELS = {
     "done": "完成", "failed": "失败", "running": "运行中",
     "ok": "通过", "warn": "提示", "error": "隔离",
+    "pending": "待清除", "partial": "清除中", "scrubbed": "已清除",
     "SCHEDULED": "排入", "RESCHEDULED": "改期",
     "CONFLICT": "冲突", "SKIPPED": "跳过",
 }
